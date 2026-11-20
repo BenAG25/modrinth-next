@@ -38,7 +38,7 @@ Ein eigener Tab, um Minecraft-Server direkt auf deinem PC zu betreiben:
 
 ## Installation (Windows)
 
-1. Lade unter [Releases](../../releases/latest) die Datei `Modrinth Next_x.y.z_x64-setup.exe` herunter.
+1. Lade unter [Releases](../../releases/latest) die Datei `Modrinth-Next_x.y.z_x64-setup.exe` herunter.
 2. Starte sie. Da der Installer nicht signiert ist, zeigt Windows SmartScreen evtl. eine Warnung:
    „Weitere Informationen“ → „Trotzdem ausführen“.
 
