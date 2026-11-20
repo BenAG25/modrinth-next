@@ -308,3 +308,84 @@ impl DirectoryInfo {
         Ok(())
     }
 }
+
+/// Modrinth Next: identifier of the official Modrinth App, whose data can be
+/// imported on first start.
+pub const OFFICIAL_APP_IDENTIFIER: &str = "ModrinthApp";
+const IMPORT_DECLINED_MARKER: &str = ".official-import-declined";
+
+/// Data of the official Modrinth App that can be imported.
+#[derive(Debug, Clone)]
+pub struct OfficialAppData {
+    pub settings_dir: PathBuf,
+    pub profile_count: usize,
+}
+
+impl DirectoryInfo {
+    /// Returns the official Modrinth App's data if this app has no data yet
+    /// and the user has not declined the import before.
+    pub fn find_official_app_data(
+        app_identifier: &str,
+    ) -> Option<OfficialAppData> {
+        if app_identifier == OFFICIAL_APP_IDENTIFIER {
+            return None;
+        }
+        let own = Self::initial_settings_dir_path(app_identifier)?;
+        if own.join("app.db").exists()
+            || own.join(IMPORT_DECLINED_MARKER).exists()
+        {
+            return None;
+        }
+        let official = dirs::data_dir()?.join(OFFICIAL_APP_IDENTIFIER);
+        if !official.join("app.db").is_file() {
+            return None;
+        }
+        let profile_count = std::fs::read_dir(official.join("profiles"))
+            .map(|entries| {
+                entries.flatten().filter(|e| e.path().is_dir()).count()
+            })
+            .unwrap_or(0);
+        Some(OfficialAppData {
+            settings_dir: official,
+            profile_count,
+        })
+    }
+
+    /// Remembers that the user does not want to import the official app's data.
+    pub fn decline_official_import(app_identifier: &str) {
+        if let Some(own) = Self::initial_settings_dir_path(app_identifier) {
+            let _ = std::fs::create_dir_all(&own);
+            let _ = std::fs::write(own.join(IMPORT_DECLINED_MARKER), b"");
+        }
+    }
+
+    /// Copies profiles, accounts and settings of the official Modrinth App.
+    /// Must run before the app state is initialized.
+    pub async fn import_official_app_data(
+        app_identifier: &str,
+        data: &OfficialAppData,
+    ) -> crate::Result<()> {
+        let own = Self::initial_settings_dir_path(app_identifier).ok_or(
+            ErrorKind::FSError("could not find the app directory".to_string()),
+        )?;
+        move_app_directory::import_app_directory(&data.settings_dir, &own).await
+    }
+}
+
+#[cfg(test)]
+mod official_import_tests {
+    /// Manual smoke test: IMPORT_TEST_SRC=<dir with app.db> IMPORT_TEST_DEST=<empty dir>
+    #[tokio::test]
+    #[ignore]
+    async fn import_smoke() {
+        let src =
+            std::path::PathBuf::from(std::env::var("IMPORT_TEST_SRC").unwrap());
+        let dest = std::path::PathBuf::from(
+            std::env::var("IMPORT_TEST_DEST").unwrap(),
+        );
+        super::move_app_directory::import_app_directory(&src, &dest)
+            .await
+            .unwrap();
+        assert!(dest.join("app.db").is_file());
+    }
+}

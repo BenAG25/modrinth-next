@@ -43,6 +43,8 @@ Ein eigener Tab, um Minecraft-Server direkt auf deinem PC zu betreiben:
    „Weitere Informationen“ → „Trotzdem ausführen“.
 
 Modrinth Next installiert sich **neben** der offiziellen Modrinth App und nutzt einen eigenen Datenordner.
+Findet es beim ersten Start die offizielle Modrinth App, fragt es, ob **Profile, Mods, Einstellungen und Anmeldungen**
+übernommen werden sollen. Dabei wird eine Kopie erstellt – die offizielle App bleibt unverändert.
 
 ## Selbst bauen
 

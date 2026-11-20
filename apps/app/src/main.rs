@@ -22,6 +22,61 @@ mod updater_impl;
 #[cfg(not(feature = "updater"))]
 mod updater_impl_noop;
 
+/// Modrinth Next: on first start, offer to copy profiles, accounts and
+/// settings from the official Modrinth App. The official app is not changed.
+async fn import_official_app_data(identifier: &str) {
+    let Some(data) = theseus::official_import::find_importable(identifier)
+    else {
+        return;
+    };
+
+    let text = format!(
+        "Modrinth Next hat die offizielle Modrinth App auf diesem PC gefunden \
+         ({} Profile).\n\n\
+         Sollen Profile, Mods, Einstellungen und Anmeldungen (Modrinth- und \
+         Minecraft-Accounts) übernommen werden?\n\n\
+         Es wird eine Kopie erstellt – die offizielle App bleibt unverändert. \
+         Je nach Größe kann das einen Moment dauern.",
+        data.profile_count
+    );
+    let accepted = tauri::async_runtime::spawn_blocking(move || {
+        DialogBuilder::message()
+            .set_level(MessageLevel::Info)
+            .set_title("Daten aus der Modrinth App übernehmen?")
+            .set_text(text)
+            .confirm()
+            .show()
+            .unwrap_or(false)
+    })
+    .await
+    .unwrap_or(false);
+
+    if !accepted {
+        theseus::official_import::decline(identifier);
+        return;
+    }
+
+    tracing::info!("Importing data from the official Modrinth App...");
+    if let Err(error) =
+        theseus::official_import::import(identifier, &data).await
+    {
+        tracing::error!("Importing official app data failed: {error:#}");
+        let text = format!(
+            "Die Daten konnten nicht übernommen werden:\n{error}\n\n\
+             Modrinth Next startet ohne übernommene Daten."
+        );
+        let _ = tauri::async_runtime::spawn_blocking(move || {
+            DialogBuilder::message()
+                .set_level(MessageLevel::Warning)
+                .set_title("Übernahme fehlgeschlagen")
+                .set_text(text)
+                .alert()
+                .show()
+        })
+        .await;
+    }
+}
+
 // Should be called in launcher initialization
 #[tracing::instrument(skip_all)]
 #[tauri::command]
@@ -31,6 +86,8 @@ async fn initialize_state(
 ) -> api::Result<()> {
     tracing::info!("Initializing app event state...");
     theseus::EventState::init(app.clone(), events).await?;
+
+    import_official_app_data(&app.config().identifier).await;
 
     tracing::info!("Initializing app state...");
     State::init(app.config().identifier.clone()).await?;

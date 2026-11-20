@@ -1094,3 +1094,131 @@ mod tests {
         );
     }
 }
+
+/// Modrinth Next: copies the data of another installation of the app (the
+/// official Modrinth App) into `destination`, so profiles, accounts and
+/// settings carry over. The source installation is never modified.
+///
+/// The database is copied with `VACUUM INTO`, which gives a consistent
+/// snapshot even while the other app is running. Files are copied with the
+/// same verified copy that the "move app directory" feature uses, and all
+/// paths in the copied database are rewritten to point at `destination`.
+pub(crate) async fn import_app_directory(
+    source_settings_dir: &Path,
+    destination: &Path,
+) -> crate::Result<()> {
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+
+    let source_db = source_settings_dir.join("app.db");
+    if !fs::try_exists(&source_db).await? {
+        bail!(ErrorKind::InputError(
+            "no app database found to import".to_string()
+        ));
+    }
+    fs::create_dir_all(destination).await?;
+    let staging = destination.join("app.db.import");
+    let _ = fs::remove_file(&staging).await;
+
+    // 1. Consistent snapshot of the source database
+    {
+        let source = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(&source_db)
+                    .read_only(true)
+                    .busy_timeout(std::time::Duration::from_secs(30)),
+            )
+            .await?;
+        sqlx::query("VACUUM INTO ?")
+            .bind(staging.to_string_lossy().into_owned())
+            .execute(&source)
+            .await?;
+        source.close().await;
+    }
+
+    let result = async {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(SqliteConnectOptions::new().filename(&staging))
+            .await?;
+
+        // 2. Refuse databases from a newer app version
+        let migrator = sqlx::migrate!();
+        let known: HashSet<i64> = migrator.iter().map(|m| m.version).collect();
+        let applied: Vec<i64> =
+            sqlx::query_scalar("SELECT version FROM _sqlx_migrations")
+                .fetch_all(&pool)
+                .await
+                .unwrap_or_default();
+        if applied.iter().any(|version| !known.contains(version)) {
+            pool.close().await;
+            bail!(ErrorKind::InputError(
+                "the other app is newer than Modrinth Next; update Modrinth Next first"
+                    .to_string(),
+            ));
+        }
+        migrator.run(&pool).await?;
+
+        // 3. Copy files
+        let custom_dir: Option<String> = sqlx::query_scalar(
+            "SELECT custom_dir FROM settings LIMIT 1",
+        )
+        .fetch_optional(&pool)
+        .await?
+        .flatten();
+        let source_config_dir = custom_dir
+            .map(PathBuf::from)
+            .filter(|dir| dir.is_dir())
+            .unwrap_or_else(|| source_settings_dir.to_path_buf());
+        let mut mappings =
+            vec![(source_config_dir.clone(), destination.to_path_buf())];
+        if source_config_dir != source_settings_dir {
+            mappings.push((
+                source_settings_dir.to_path_buf(),
+                destination.to_path_buf(),
+            ));
+        }
+
+        let skipped: HashSet<PathBuf> =
+            rebuildable_cache_entries(&source_config_dir)
+                .await?
+                .into_iter()
+                .collect();
+        let mut plan = MovePlan::default();
+        for name in MOVED_APP_DIRECTORIES.iter().chain(&["local-servers"]) {
+            let from = source_config_dir.join(name);
+            if fs::try_exists(&from).await? {
+                plan_tree(
+                    &from,
+                    &destination.join(name),
+                    &mappings,
+                    &skipped,
+                    &mut plan,
+                )
+                .await?;
+            }
+        }
+        ensure_move_space(destination, plan.required)?;
+        copy_planned(&plan, destination, &|_| {}).await?;
+
+        // 4. Point the copied database at the new location
+        rewrite_database_paths(&pool, &mappings, "").await?;
+        sqlx::query(
+            "UPDATE settings SET custom_dir = NULL, prev_custom_dir = NULL",
+        )
+        .execute(&pool)
+        .await?;
+        sqlx::query("DELETE FROM processes").execute(&pool).await?;
+        pool.close().await;
+        crate::Result::Ok(())
+    }
+    .await;
+
+    if let Err(error) = result {
+        let _ = fs::remove_file(&staging).await;
+        return Err(error);
+    }
+    fs::rename(&staging, destination.join("app.db")).await?;
+    Ok(())
+}

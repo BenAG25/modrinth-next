@@ -10,6 +10,7 @@ pub mod metadata;
 pub mod minecraft_auth;
 pub mod minecraft_skins;
 pub mod mr_auth;
+pub mod official_import;
 pub mod onboarding_checklist;
 pub mod pack;
 pub mod process;
