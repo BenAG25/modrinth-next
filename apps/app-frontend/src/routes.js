@@ -74,6 +74,16 @@ export default new createRouter({
 			component: () => import('@/pages/Screenshots.vue'),
 		},
 		{
+			path: '/local-servers',
+			name: 'LocalServers',
+			component: () => import('@/features/local-servers/pages/local-servers-page.vue'),
+		},
+		{
+			path: '/local-servers/:id',
+			name: 'LocalServer',
+			component: () => import('@/features/local-servers/pages/local-server-page.vue'),
+		},
+		{
 			path: '/user/:user/:projectType?',
 			name: 'User',
 			component: () => import('@/pages/User.vue'),

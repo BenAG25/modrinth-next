@@ -500,6 +500,35 @@ fn main() {
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,
                     ),
+            )
+            .plugin(
+                "local-servers",
+                InlinedPlugin::new()
+                    .commands(&[
+                        "local_servers_list",
+                        "local_servers_get",
+                        "local_servers_create",
+                        "local_servers_delete",
+                        "local_servers_start",
+                        "local_servers_stop",
+                        "local_servers_kill",
+                        "local_servers_send_command",
+                        "local_servers_get_logs",
+                        "local_servers_get_properties",
+                        "local_servers_set_properties",
+                        "local_servers_update_settings",
+                        "local_servers_get_game_versions",
+                        "local_servers_get_loader_versions",
+                        "local_servers_list_content",
+                        "local_servers_toggle_content",
+                        "local_servers_remove_content",
+                        "local_servers_search_content",
+                        "local_servers_install_project",
+                        "local_servers_get_network_info",
+                    ])
+                    .default_permission(
+                        DefaultPermissionRule::AllowAllCommands,
+                    ),
             ),
     )
     .expect("Failed to run tauri-build");

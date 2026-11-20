@@ -10,6 +10,7 @@ import {
 	PlayIcon,
 	PlusIcon,
 	RefreshCwIcon,
+	ServerIcon,
 	ServerStackIcon,
 	SettingsIcon,
 	ShirtIcon,
@@ -340,10 +341,9 @@ const hasPlus = computed(
 		(hasMidasBadge(credentials.value.user) ||
 			hasActivePride26Midas(authenticatedModrinthUser.value?.campaigns?.pride_26)),
 )
-const showAd = computed(
-	() => sidebarVisible.value && !hasPlus.value && credentials.value !== undefined,
-)
-const adConsentAvailable = computed(() => credentials.value !== undefined && !hasPlus.value)
+// Modrinth Next: no ads, no ad consent, no Modrinth+ upsell.
+const showAd = computed(() => false)
+const adConsentAvailable = computed(() => false)
 providePageContext({
 	hierarchicalSidebarAvailable: ref(true),
 	showAds: showAd,
@@ -1326,7 +1326,7 @@ const modrinthAccountMenuOptions = computed(() => [
 		href: 'https://modrinth.plus?app',
 		target: '_blank',
 		tone: 'purple',
-		shown: !hasPlus.value,
+		shown: false, // Modrinth Next: no Modrinth+ upsell
 	},
 	{
 		id: 'add-friend',
@@ -2088,6 +2088,14 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 				"
 			>
 				<ServerStackIcon />
+			</NavButton>
+			<NavButton
+				v-tooltip.right="'Lokale Server'"
+				to="/local-servers"
+				:is-primary="(r) => r.path === '/local-servers'"
+				:is-subpage="(r) => r.path.startsWith('/local-servers/')"
+			>
+				<ServerIcon />
 			</NavButton>
 			<suspense>
 				<QuickInstanceSwitcher>

@@ -7,7 +7,6 @@ import {
 	HeartHandshakeIcon,
 	LanguagesIcon,
 	LightBulbIcon,
-	ModrinthIcon,
 	PaintbrushIcon,
 	RefreshCwIcon,
 	Settings2Icon,
@@ -32,6 +31,7 @@ import { getVersion } from '@tauri-apps/api/app'
 import { platform as getOsPlatform, version as getOsVersion } from '@tauri-apps/plugin-os'
 import { computed, ref } from 'vue'
 
+import NextLogo from '@/app/shell/next-logo.vue'
 import { useAppSettings } from '@/composables/use-app-settings.ts'
 import PrivacySettings from '@/features/settings/account/privacy-settings.vue'
 import ProfileSettings from '@/features/settings/account/profile-settings.vue'
@@ -379,7 +379,7 @@ const messages = defineMessages({
 						}"
 						@click="devModeCount"
 					>
-						<ModrinthIcon aria-hidden="true" class="w-6 h-6" />
+						<NextLogo :with-text="false" class="h-6" />
 					</button>
 					<div v-if="appInfo" class="max-w-[200px]">
 						<p class="m-0">

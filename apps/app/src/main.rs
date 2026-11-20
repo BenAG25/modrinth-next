@@ -337,6 +337,7 @@ fn main() {
         .plugin(api::ads::init())
         .plugin(api::friends::init())
         .plugin(api::worlds::init())
+        .plugin(api::local_servers::init())
         .manage(PendingUpdateData::default())
         .manage(RestartAfterPendingUpdate::default())
         .invoke_handler(tauri::generate_handler![

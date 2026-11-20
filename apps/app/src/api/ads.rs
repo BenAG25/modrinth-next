@@ -20,6 +20,10 @@ pub struct AdsState {
     pub pending_debug_state: Option<oneshot::Sender<serde_json::Value>>,
 }
 
+/// Modrinth Next: ads are fully disabled. The ads webview is never created
+/// and the consent popup is never requested.
+const ADS_ENABLED: bool = false;
+
 const AD_LINK: &str = "https://modrinth.com/wrapper/app-ads-cookie";
 const APP_TITLE_BAR_HEIGHT: f32 = 48.0;
 const ADS_DEBUG_STATE_TIMEOUT: Duration = Duration::from_secs(3);
@@ -480,6 +484,10 @@ pub async fn init_ads_window<R: Runtime>(
 ) -> crate::api::Result<()> {
     use tauri::WebviewUrl;
 
+    if !ADS_ENABLED {
+        return Ok(());
+    }
+
     let state = app.state::<RwLock<AdsState>>();
     let mut state = state.write().await;
 
@@ -863,7 +871,8 @@ pub async fn should_show_ads_consent_popup<R: Runtime>(
     let state = app.state::<RwLock<AdsState>>();
     let state = state.read().await;
 
-    Ok(state.shown
+    Ok(ADS_ENABLED
+        && state.shown
         && state.consent_required
         && state.consent_notification_enabled)
 }

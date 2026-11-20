@@ -1,54 +1,75 @@
-<picture>
-	<source media="(prefers-color-scheme: light)" srcset=".github/assets/monorepo_cover_light.png">
-	<img alt="Modrinth Monorepo Cover" src=".github/assets/monorepo_cover.png">
-</picture>
+<p align="center">
+	<img src="apps/app/icons/modrinth-next.svg" width="128" alt="Modrinth Next Logo">
+</p>
 
-![Issues](https://img.shields.io/github/issues-raw/Modrinth/code?color=c78aff&label=issues&style=for-the-badge)
-![Pull Requests](https://img.shields.io/github/issues-pr-raw/Modrinth/code?color=c78aff&label=PRs&style=for-the-badge)
-![Contributors](https://img.shields.io/github/contributors/Modrinth/code?color=c78aff&label=contributors&style=for-the-badge)
-![Lines of Code](https://img.shields.io/endpoint?url=https://loctopus.creeperkatze.dev/github/modrinth/code/badge?style=flat&logoColor=white&color=c78aff&style=for-the-badge)
-![Commit Activity](https://img.shields.io/github/commit-activity/m/Modrinth/code?color=c78aff&label=commits&style=for-the-badge)
-![Last Commit](https://img.shields.io/github/last-commit/Modrinth/code?color=c78aff&label=last%20commit&style=for-the-badge)
+<h1 align="center">Modrinth Next</h1>
 
-## Modrinth Monorepo
+<p align="center">
+	Ein inoffizieller Fork der Modrinth App – <b>ohne Werbung</b> und mit <b>lokalen Minecraft-Servern</b>.
+</p>
 
-Welcome to the Modrinth Monorepo, the primary codebase for the Modrinth website, app, API and documentation. It contains ![Lines of code](https://img.shields.io/endpoint?url=https://loctopus.creeperkatze.dev/github/modrinth/code/badge%3Fformat%3Dhuman&logoColor=white&color=black&label=) lines of code and has ![Contributors](https://img.shields.io/github/contributors/Modrinth/code?color=black&label=) contributors!
+<p align="center">
+	<a href="../../releases/latest"><b>⬇️ Neueste Version herunterladen</b></a>
+</p>
 
-If you're not a developer and you've stumbled upon this repository, you can access the web interface on the [Modrinth website](https://modrinth.com) and download the latest release of the app [here](https://modrinth.com/app).
+> **Hinweis:** Modrinth Next ist ein Community-Projekt und steht in keiner Verbindung zu Modrinth / Rinth, Inc.
+> Es basiert auf dem Open-Source-Code der [Modrinth App](https://github.com/modrinth/code) (GPL-3.0).
+> Wenn dir Modrinth gefällt, unterstütze die Creator und das Team z. B. mit [Modrinth+](https://modrinth.plus).
 
-## Development
+## Features
 
-This repository contains several projects. For detailed development information, please refer to their respective guides:
+Alles aus der Modrinth App (Instanzen, Modpacks, Mods von Modrinth, Skins …) und zusätzlich:
 
-| Project       | Directory              | Guide                                                     |
-| ------------- | ---------------------- | --------------------------------------------------------- |
-| Website       | `apps/frontend`        | [Guide](https://docs.modrinth.com/contributing/knossos/)  |
-| App           | `apps/app`             | [Guide](https://docs.modrinth.com/contributing/theseus/)  |
-| API           | `apps/labrinth`        | [Guide](https://docs.modrinth.com/contributing/labrinth/) |
-| Documentation | `apps/docs`            | [Guide](https://docs.modrinth.com/contributing/docs/)     |
+### 🚫 Keine Werbung
 
-Shared libraries live in `packages/`.
+Kein Werbebanner, kein Werbe-Consent-Popup, keine Upgrade-Hinweise.
 
-## Contributing
+### 🖥️ Lokale Server
 
-We welcome contributions! Before submitting any contributions, please read our [contributing guidelines](https://docs.modrinth.com/contributing/getting-started/).
+Ein eigener Tab, um Minecraft-Server direkt auf deinem PC zu betreiben:
 
-If you plan to fork this repository for your own purposes, please review our [copying guidelines](COPYING.md).
+- **Server mit wenigen Klicks erstellen** – Fabric, NeoForge, Forge, Paper oder Vanilla, beliebige Minecraft-Version.
+  Server-Dateien und die passende Java-Version werden automatisch heruntergeladen.
+- **Mods, Plugins und Datapacks von Modrinth installieren** – die Suche zeigt nur passende Inhalte,
+  benötigte Abhängigkeiten werden automatisch mitinstalliert.
+- **Live-Konsole** mit Befehlseingabe und Verlauf.
+- **Einstellungen** wie Spielmodus, Schwierigkeit, PvP, Whitelist, Port, RAM und mehr – ohne `server.properties` von Hand zu bearbeiten.
+- **Adresse zum Kopieren** für dich (`localhost`) und für Freunde im selben Netzwerk (LAN).
 
-## Sponsors
+## Installation (Windows)
 
-[![CI powered by Namespace](https://namespace.so/oss/badge.svg)](https://namespace.so/github-actions/?utm_source=oss&utm_campaign=modrinth)
+1. Lade unter [Releases](../../releases/latest) die Datei `Modrinth Next_x.y.z_x64-setup.exe` herunter.
+2. Starte sie. Da der Installer nicht signiert ist, zeigt Windows SmartScreen evtl. eine Warnung:
+   „Weitere Informationen“ → „Trotzdem ausführen“.
 
-Thanks to [Namespace](https://namespace.so/github-actions/?utm_source=oss&utm_campaign=modrinth) for sponsoring Modrinth's CI.
+Modrinth Next installiert sich **neben** der offiziellen Modrinth App und nutzt einen eigenen Datenordner.
 
-## Security
+## Selbst bauen
 
-If you discover a security vulnerability within our codebase, please follow our [responsible disclosure guidelines](https://modrinth.com/legal/security).
+Voraussetzungen: [Node.js](https://nodejs.org) + [pnpm](https://pnpm.io), [Rust](https://rustup.rs),
+Visual Studio C++ Build Tools (Windows) und ein JDK 17–21.
 
-## Support
+```powershell
+pnpm install
+Copy-Item packages/app-lib/.env.prod packages/app-lib/.env
+$env:SQLX_OFFLINE = "true"
+cd apps/app
+pnpm tauri build --bundles nsis
+```
 
-If you need help with the Modrinth web interface or app, please visit our [support page](https://support.modrinth.com). For general inquiries, you can also join our [Discord server](https://discord.modrinth.com).
+Der Installer liegt danach in `target/release/bundle/nsis/`.
 
-## License
+## Wo ist was?
 
-All packages in this repository are licensed under their respective licenses. See the [copying guidelines](COPYING.md) for details, including restrictions on Modrinth branding.
+| Bereich                              | Pfad                                            |
+| ------------------------------------ | ----------------------------------------------- |
+| Lokale Server – Backend (Rust/Tauri) | `apps/app/src/api/local_servers.rs`             |
+| Lokale Server – Oberfläche (Vue)     | `apps/app-frontend/src/features/local-servers/` |
+| Werbung deaktiviert                  | `apps/app/src/api/ads.rs` (`ADS_ENABLED`)       |
+
+Der restliche Code entspricht dem [Modrinth-Monorepo](https://github.com/modrinth/code).
+
+## Lizenz
+
+Die App steht wie das Original unter der [GPL-3.0](apps/app/LICENSE). Siehe auch [COPYING.md](COPYING.md).
+Modrinth-Markenzeichen und -Logos wurden entfernt bzw. ersetzt.
