@@ -129,9 +129,14 @@ pub async fn parse_command(
 ) -> crate::Result<CommandPayload> {
     tracing::debug!("Parsing external command");
 
-    // modrinth://some-command
+    // modrinth-next://some-command (Modrinth Next uses its own scheme so it
+    // stays separate from the official Modrinth App; modrinth:// is still
+    // understood when passed explicitly)
     // This occurs when following a web redirect link
-    if let Some(sublink) = command_string.strip_prefix("modrinth://") {
+    if let Some(sublink) = command_string
+        .strip_prefix("modrinth-next://")
+        .or_else(|| command_string.strip_prefix("modrinth://"))
+    {
         Ok(handle_url(sublink).await?)
     } else {
         // We assume anything else is a filepath to an .mrpack file
