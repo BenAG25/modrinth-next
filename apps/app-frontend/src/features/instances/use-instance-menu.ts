@@ -7,6 +7,7 @@ import {
 	PlayIcon,
 	PlusIcon,
 	ServerIcon,
+	ShareIcon,
 	SquareArrowOutUpRightIcon,
 	StarIcon,
 	StopCircleIcon,
@@ -24,6 +25,7 @@ import {
 import { useRouter } from 'vue-router'
 
 import { useHiddenInstances } from '@/features/library/hidden-instances/use-hidden-instances'
+import { openProfileShare } from '@/features/profile-share/store'
 import { trackEvent } from '@/helpers/analytics'
 import { toError } from '@/helpers/errors'
 import { install_duplicate_instance } from '@/helpers/install'
@@ -205,6 +207,13 @@ export function useInstanceMenu() {
 				icon: SquareArrowOutUpRightIcon,
 				disabled: installing,
 				action: () => void item.seeInstance(),
+			},
+			{
+				id: 'share_code',
+				label: 'Per Code teilen',
+				icon: ShareIcon,
+				disabled: installing,
+				action: () => openProfileShare(item.instance.id),
 			},
 			{
 				id: 'create_local_server',

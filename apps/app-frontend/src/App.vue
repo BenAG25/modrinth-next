@@ -89,6 +89,7 @@ import UpdateToPlayModal from '@/components/ui/modal/UpdateToPlayModal.vue'
 import NavButton from '@/components/ui/NavButton.vue'
 import QuickInstanceSwitcher from '@/components/ui/QuickInstanceSwitcher.vue'
 import SharedInstanceInviteHandler from '@/components/ui/shared-instances/shared-instance-invite-handler/index.vue'
+import ProfileShareHost from '@/features/profile-share/profile-share-host.vue'
 import SplashScreen from '@/components/ui/SplashScreen.vue'
 import SurveyPopup from '@/components/ui/SurveyPopup.vue'
 import { useCheckDisableMouseover } from '@/composables/macCssFix.js'
@@ -2312,6 +2313,9 @@ provideAppUpdateDownloadProgress(appUpdateDownload)
 	/>
 	<ServerPlayHandler ref="serverPlayHandler" />
 	<SharedInstanceInviteHandler ref="sharedInstanceInviteHandler" />
+	<ProfileShareHost
+		:install-invite="(inviteId) => sharedInstanceInviteHandler?.installFromInviteId(inviteId)"
+	/>
 	<SharedInstanceLockNotice ref="sharedInstanceLockNotice" />
 	<InstallToPlayModal ref="installToPlayModal" :show-external-warnings="false" />
 	<UpdateToPlayModal ref="updateToPlayModal" :show-external-warnings="false" />

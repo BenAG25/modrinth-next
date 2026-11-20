@@ -186,6 +186,7 @@ import {
 	PlayIcon,
 	ReportIcon,
 	SettingsIcon,
+	ShareIcon,
 	StopCircleIcon,
 	TimerIcon,
 	UnknownIcon,
@@ -210,6 +211,7 @@ import {
 import { computed } from 'vue'
 
 import { libraryInstanceMessages } from '@/features/library/messages'
+import { openProfileShare } from '@/features/profile-share/store'
 import type { GameInstance } from '@/helpers/types'
 
 import InstanceHeaderServerMetadata from './instance-page-header-server-metadata.vue'
@@ -369,6 +371,12 @@ const serverPlayOptions = computed<ButtonMenuOption[]>(() => [
 ])
 const moreActions = computed<ButtonMenuOption[]>(() => {
 	const actions: ButtonMenuOption[] = [
+		{
+			id: 'share-code',
+			label: 'Per Code teilen',
+			icon: ShareIcon,
+			action: () => openProfileShare(props.instance.id),
+		},
 		{
 			id: 'open-folder',
 			label: formatMessage(messages.openFolder),

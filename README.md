@@ -36,6 +36,14 @@ Ein eigener Tab, um Minecraft-Server direkt auf deinem PC zu betreiben:
 - **Einstellungen** wie Spielmodus, Schwierigkeit, PvP, Whitelist, Port, RAM und mehr – ohne `server.properties` von Hand zu bearbeiten.
 - **Adresse zum Kopieren** für dich (`localhost`) und für Freunde im selben Netzwerk (LAN).
 
+### 🔗 Profile per Code teilen
+
+- **Rechtsklick auf ein Profil → „Per Code teilen“** zeigt einen Code, den du Freunden schickst.
+- Sie klicken in der Bibliothek auf **„Mit Code importieren“** und bekommen dasselbe Profil.
+- Mods geändert? Einfach erneut teilen – der neue Code **aktualisiert** das Profil deiner Freunde.
+- Zwei Varianten: ein **langer Code ohne Account** (enthält alle Modrinth-Mods, läuft nie ab) oder ein
+  **kurzer Modrinth-Code** über Modrinths „Geteilte Profile“ (mit Configs, braucht einen Modrinth-Account).
+
 ## Installation (Windows)
 
 1. Lade unter [Releases](../../releases/latest) die Datei `Modrinth-Next_x.y.z_x64-setup.exe` herunter.

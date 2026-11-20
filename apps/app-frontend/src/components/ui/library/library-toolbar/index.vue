@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, SearchIcon, SquarePlusIcon } from '@modrinth/assets'
+import { DownloadIcon, PlusIcon, SearchIcon, SquarePlusIcon } from '@modrinth/assets'
 import { Button, defineMessages, Input, useVIntl } from '@modrinth/ui'
 import { computed, inject } from 'vue'
 
@@ -7,6 +7,7 @@ import FilterMenu from '@/components/ui/library/library-toolbar/filter-menu.vue'
 import NewGroupModal from '@/components/ui/library/library-toolbar/new-group-modal.vue'
 import SortMenu from '@/components/ui/library/library-toolbar/sort-menu.vue'
 import { useLibrary } from '@/components/ui/library/use-library'
+import { openProfileImport } from '@/features/profile-share/store'
 
 const { search, selectedLibraryInstances, openNewGroupModal } = useLibrary()
 const showCreationModal = inject<() => void>('showCreationModal')
@@ -37,6 +38,10 @@ function openNewGroup() {
 				clearable
 				wrapper-class="min-w-[16rem] flex-1"
 			/>
+			<Button @click="openProfileImport">
+				<DownloadIcon />
+				Mit Code importieren
+			</Button>
 			<Button @click="openNewGroup">
 				<SquarePlusIcon />
 				{{ formatMessage(messages.newGroup) }}
