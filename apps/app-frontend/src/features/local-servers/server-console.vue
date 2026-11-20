@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { SendIcon } from '@modrinth/assets'
-import { Button, injectNotificationManager } from '@modrinth/ui'
+import { SendIcon, TerminalSquareIcon } from '@modrinth/assets'
+import { Button, injectNotificationManager, Input } from '@modrinth/ui'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
@@ -15,7 +15,7 @@ const { handleError } = injectNotificationManager()
 
 const MAX_LINES = 2000
 const lines = ref<string[]>([])
-const command = ref('')
+const command = ref<string | number | undefined>('')
 const history = ref<string[]>([])
 const historyIndex = ref(-1)
 const scroller = ref<HTMLElement | null>(null)
@@ -50,7 +50,7 @@ async function load() {
 }
 
 async function send() {
-	const cmd = command.value.trim()
+	const cmd = String(command.value ?? '').trim()
 	if (!cmd) return
 	history.value.unshift(cmd)
 	historyIndex.value = -1
@@ -91,7 +91,7 @@ watch(() => props.serverId, load)
 	<div class="flex h-full min-h-0 flex-col gap-3">
 		<div
 			ref="scroller"
-			class="min-h-[300px] flex-1 overflow-y-auto rounded-xl bg-bg p-4 font-mono text-xs leading-relaxed"
+			class="min-h-[300px] flex-1 overflow-y-auto rounded-2xl border border-solid border-surface-4 bg-surface-1 p-4 font-mono text-xs leading-relaxed"
 			@scroll="onScroll"
 		>
 			<div v-if="lines.length === 0" class="text-secondary">
@@ -107,23 +107,24 @@ watch(() => props.serverId, load)
 			</div>
 		</div>
 		<form class="flex gap-2" @submit.prevent="send">
-			<input
+			<Input
 				v-model="command"
-				type="text"
-				class="flex-1 font-mono"
+				:icon="TerminalSquareIcon"
+				wrapper-class="min-w-0 flex-1"
+				input-class="font-mono"
+				:input-attrs="{ onKeydown }"
 				:placeholder="
 					status === 'stopped'
 						? 'Server ist gestoppt'
 						: 'Befehl eingeben, z. B. op DeinName oder time set day'
 				"
 				:disabled="status === 'stopped'"
-				@keydown="onKeydown"
 			/>
 			<Button
 				type="colored"
 				color="brand"
 				native-type="submit"
-				:disabled="status === 'stopped' || !command.trim()"
+				:disabled="status === 'stopped' || !String(command ?? '').trim()"
 			>
 				<SendIcon /> Senden
 			</Button>

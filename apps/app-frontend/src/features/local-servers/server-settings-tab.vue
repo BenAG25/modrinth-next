@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CheckIcon, SpinnerIcon, TrashIcon } from '@modrinth/assets'
-import { Button, Combobox, injectNotificationManager, Slider, Toggle } from '@modrinth/ui'
+import { Button, Combobox, injectNotificationManager, Input, Slider, Toggle } from '@modrinth/ui'
 import { onMounted, ref, watch } from 'vue'
 
 import {
@@ -20,8 +20,8 @@ const memoryGb = ref(props.server.memory_mb / 1024)
 const jvmArgs = ref(props.server.jvm_args.join(' '))
 
 const motd = ref('')
-const port = ref(25565)
-const maxPlayers = ref(20)
+const port = ref<string | number | undefined>(25565)
+const maxPlayers = ref<string | number | undefined>(20)
 const gamemode = ref('survival')
 const difficulty = ref('easy')
 const onlineMode = ref(true)
@@ -128,29 +128,33 @@ watch(() => props.server.id, load)
 
 <template>
 	<div class="flex max-w-3xl flex-col gap-6">
-		<section class="flex flex-col gap-4 rounded-2xl bg-bg-raised p-5">
+		<section
+			class="flex flex-col gap-4 rounded-2xl border border-solid border-surface-4 bg-bg-raised p-5"
+		>
 			<h2 class="m-0 text-lg font-bold text-contrast">Allgemein</h2>
 			<label class="flex flex-col gap-2">
 				<span class="font-semibold text-contrast">Name</span>
-				<input v-model="name" type="text" maxlength="64" />
+				<Input v-model="name" :maxlength="64" wrapper-class="w-full" />
 			</label>
 			<label class="flex flex-col gap-2">
 				<span class="font-semibold text-contrast">Nachricht in der Serverliste (MOTD)</span>
-				<input v-model="motd" type="text" maxlength="120" />
+				<Input v-model="motd" :maxlength="120" wrapper-class="w-full" />
 			</label>
 			<div class="grid grid-cols-2 gap-4">
 				<label class="flex flex-col gap-2">
 					<span class="font-semibold text-contrast">Port</span>
-					<input v-model.number="port" type="number" min="1024" max="65535" />
+					<Input v-model="port" type="number" :min="1024" :max="65535" wrapper-class="w-full" />
 				</label>
 				<label class="flex flex-col gap-2">
 					<span class="font-semibold text-contrast">Max. Spieler</span>
-					<input v-model.number="maxPlayers" type="number" min="1" max="1000" />
+					<Input v-model="maxPlayers" type="number" :min="1" :max="1000" wrapper-class="w-full" />
 				</label>
 			</div>
 		</section>
 
-		<section class="flex flex-col gap-4 rounded-2xl bg-bg-raised p-5">
+		<section
+			class="flex flex-col gap-4 rounded-2xl border border-solid border-surface-4 bg-bg-raised p-5"
+		>
 			<h2 class="m-0 text-lg font-bold text-contrast">Gameplay</h2>
 			<div class="grid grid-cols-2 gap-4">
 				<div class="flex flex-col gap-2">
@@ -164,7 +168,7 @@ watch(() => props.server.id, load)
 			</div>
 			<label class="flex flex-col gap-2">
 				<span class="font-semibold text-contrast">Welt-Seed (nur für neue Welten)</span>
-				<input v-model="seed" type="text" placeholder="Zufällig" />
+				<Input v-model="seed" placeholder="Zufällig" wrapper-class="w-full" />
 			</label>
 			<div class="flex flex-col gap-3">
 				<div class="flex items-center justify-between gap-4">
@@ -188,7 +192,9 @@ watch(() => props.server.id, load)
 			</div>
 		</section>
 
-		<section class="flex flex-col gap-4 rounded-2xl bg-bg-raised p-5">
+		<section
+			class="flex flex-col gap-4 rounded-2xl border border-solid border-surface-4 bg-bg-raised p-5"
+		>
 			<h2 class="m-0 text-lg font-bold text-contrast">Zugang</h2>
 			<div class="flex items-center justify-between gap-4">
 				<div>
@@ -210,7 +216,9 @@ watch(() => props.server.id, load)
 			</div>
 		</section>
 
-		<section class="flex flex-col gap-4 rounded-2xl bg-bg-raised p-5">
+		<section
+			class="flex flex-col gap-4 rounded-2xl border border-solid border-surface-4 bg-bg-raised p-5"
+		>
 			<h2 class="m-0 text-lg font-bold text-contrast">Leistung</h2>
 			<div class="flex flex-col gap-2">
 				<span class="font-semibold text-contrast">Arbeitsspeicher: {{ memoryGb }} GB</span>
@@ -218,7 +226,12 @@ watch(() => props.server.id, load)
 			</div>
 			<label class="flex flex-col gap-2">
 				<span class="font-semibold text-contrast">Zusätzliche Java-Argumente</span>
-				<input v-model="jvmArgs" type="text" class="font-mono" placeholder="-XX:+UseG1GC" />
+				<Input
+					v-model="jvmArgs"
+					input-class="font-mono"
+					placeholder="-XX:+UseG1GC"
+					wrapper-class="w-full"
+				/>
 			</label>
 			<div class="text-sm text-secondary">Java {{ server.java_major }} · {{ server.path }}</div>
 		</section>

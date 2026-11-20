@@ -5,8 +5,10 @@ import type {
 	CreateLocalServer,
 	LocalServer,
 	LocalServerContentFile,
+	LocalServerInstallReport,
 	LocalServerLoader,
 	LocalServerNetworkInfo,
+	LocalServerProfileProject,
 	LocalServerSearchResult,
 	LocalServerStatus,
 	UpdateLocalServerSettings,
@@ -79,8 +81,22 @@ export const searchLocalServerContent = (
 ): Promise<LocalServerSearchResult> =>
 	invoke(p('local_servers_search_content'), { id, query, offset })
 
-export const installLocalServerProject = (id: string, projectId: string): Promise<string[]> =>
+export const installLocalServerProject = (
+	id: string,
+	projectId: string,
+): Promise<LocalServerInstallReport> =>
 	invoke(p('local_servers_install_project'), { id, projectId })
+
+export const installLocalServerProfileProjects = (
+	id: string,
+	projects: LocalServerProfileProject[],
+): Promise<LocalServerInstallReport> =>
+	invoke(p('local_servers_install_from_profile'), { id, projects })
+
+export const linkLocalServerInstance = (
+	id: string,
+	instanceId: string | null,
+): Promise<LocalServer> => invoke(p('local_servers_link_instance'), { id, instanceId })
 
 export const getLocalServerNetworkInfo = (id: string): Promise<LocalServerNetworkInfo> =>
 	invoke(p('local_servers_get_network_info'), { id })

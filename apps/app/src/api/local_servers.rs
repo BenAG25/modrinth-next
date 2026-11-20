@@ -62,6 +62,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             local_servers_search_content,
             local_servers_install_project,
             local_servers_get_network_info,
+            local_servers_install_from_profile,
+            local_servers_link_instance,
         ])
         .build()
 }
@@ -143,6 +145,9 @@ pub struct LocalServerMeta {
     pub created: chrono::DateTime<chrono::Utc>,
     #[serde(default)]
     pub projects: Vec<InstalledProject>,
+    /// Id of the game profile (instance) that belongs to this server
+    #[serde(default)]
+    pub linked_instance: Option<String>,
 }
 
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -174,6 +179,8 @@ pub struct CreateLocalServer {
     pub accept_eula: bool,
     #[serde(default)]
     pub motd: Option<String>,
+    #[serde(default)]
+    pub linked_instance: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -953,6 +960,7 @@ pub async fn local_servers_create<R: Runtime>(
             launch,
             created: chrono::Utc::now(),
             projects: vec![],
+            linked_instance: request.linked_instance.clone(),
         };
         write_meta(&dir, &meta).await?;
         emit_progress(&app, &id, "Fertig!");
@@ -1546,6 +1554,10 @@ struct MrVersion {
     files: Vec<MrFile>,
     #[serde(default)]
     dependencies: Vec<MrDependency>,
+    #[serde(default)]
+    loaders: Vec<String>,
+    #[serde(default)]
+    game_versions: Vec<String>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -1567,6 +1579,28 @@ struct MrProject {
     id: String,
     title: String,
     icon_url: Option<String>,
+    #[serde(default)]
+    server_side: Option<String>,
+}
+
+/// Result of installing content on a server.
+#[derive(Serialize, Debug, Default)]
+pub struct InstallReport {
+    /// Titles of newly installed projects (including dependencies)
+    pub installed: Vec<String>,
+    /// Titles of projects that only work on the client
+    pub client_only: Vec<String>,
+    /// Projects that were already installed on the server
+    pub already_installed: Vec<String>,
+    /// Projects that could not be installed (no compatible version etc.)
+    pub failed: Vec<String>,
+}
+
+/// A mod from a game profile that should be mirrored on the server.
+#[derive(Deserialize, Debug, Clone)]
+pub struct ProfileProject {
+    pub project_id: String,
+    pub version_id: Option<String>,
 }
 
 async fn compatible_version(
@@ -1600,88 +1634,148 @@ async fn compatible_version(
     })
 }
 
-#[tauri::command]
-pub async fn local_servers_install_project(
-    id: String,
-    project_id: String,
-) -> Result<Vec<String>> {
-    let dir = server_dir(&id).await?;
+fn version_fits_server(version: &MrVersion, meta: &LocalServerMeta) -> bool {
+    let loaders = meta.loader.modrinth_loaders();
+    version
+        .game_versions
+        .iter()
+        .any(|v| v == &meta.game_version)
+        && version
+            .loaders
+            .iter()
+            .any(|l| loaders.contains(&l.as_str()))
+}
+
+/// Installs the given projects (and their required dependencies) on a
+/// server. Client-only projects are skipped. If `skip_installed` is set,
+/// projects that already exist on the server are left alone; otherwise they
+/// are replaced by the resolved version.
+async fn install_projects(
+    id: &str,
+    requests: Vec<ProfileProject>,
+    skip_installed: bool,
+) -> anyhow::Result<InstallReport> {
+    let dir = server_dir(id).await?;
     let mut meta = read_meta(&dir).await?;
     let content_dir = dir.join(meta.loader.content_dir());
     tokio::fs::create_dir_all(&content_dir).await?;
     let client = http()?;
 
-    let installed_ids: HashSet<String> =
-        meta.projects.iter().map(|p| p.project_id.clone()).collect();
+    let requested: HashSet<String> =
+        requests.iter().map(|r| r.project_id.clone()).collect();
     let mut visited: HashSet<String> = HashSet::new();
-    let mut queue: VecDeque<(Option<String>, Option<String>)> =
-        VecDeque::from([(Some(project_id.clone()), None)]);
-    let mut installed = Vec::new();
+    let mut report = InstallReport::default();
+    // (project id, version id, explicitly requested)
+    let mut queue: VecDeque<(Option<String>, Option<String>, bool)> = requests
+        .into_iter()
+        .map(|r| (Some(r.project_id), r.version_id, true))
+        .collect();
 
-    while let Some((pid, vid)) = queue.pop_front() {
-        let version = match (&pid, &vid) {
-            (_, Some(vid)) => {
-                get_json::<MrVersion>(
-                    &client,
-                    &format!("{MODRINTH_API}/version/{vid}"),
-                )
-                .await?
-            }
-            (Some(pid), None) => {
-                match compatible_version(&client, pid, &meta).await {
-                    Ok(v) => v,
-                    // Missing dependencies shouldn't block the main install.
-                    Err(e) if pid != &project_id => {
-                        tracing::warn!("Skipping dependency {pid}: {e:#}");
-                        continue;
-                    }
-                    Err(e) => return Err(e.into()),
+    while let Some((pid, vid, explicit)) = queue.pop_front() {
+        let label = pid.clone().or_else(|| vid.clone()).unwrap_or_default();
+
+        // Resolve the version to install
+        let mut version: Option<MrVersion> = None;
+        if let Some(vid) = &vid {
+            match get_json::<MrVersion>(
+                &client,
+                &format!("{MODRINTH_API}/version/{vid}"),
+            )
+            .await
+            {
+                Ok(v) if version_fits_server(&v, &meta) => version = Some(v),
+                Ok(v) if pid.is_none() => {
+                    // Dependency pinned to a version for another loader:
+                    // look for a compatible version of the same project.
+                    version = compatible_version(&client, &v.project_id, &meta)
+                        .await
+                        .ok();
                 }
+                Ok(_) => {}
+                Err(e) => tracing::warn!("Version {vid}: {e:#}"),
             }
-            (None, None) => continue,
+        }
+        if version.is_none()
+            && let Some(pid) = &pid
+        {
+            version = compatible_version(&client, pid, &meta).await.ok();
+        }
+        let Some(version) = version else {
+            if explicit {
+                report.failed.push(label);
+            }
+            continue;
         };
 
         if !visited.insert(version.project_id.clone()) {
             continue;
         }
-        // Already installed (and not the project the user explicitly picked)
-        if version.project_id != project_id
-            && installed_ids.contains(&version.project_id)
+
+        let already = meta
+            .projects
+            .iter()
+            .find(|p| p.project_id == version.project_id)
+            .cloned();
+        if let Some(existing) = &already
+            && (skip_installed || !requested.contains(&version.project_id))
         {
+            if explicit {
+                report.already_installed.push(existing.title.clone());
+            }
             continue;
         }
 
-        let file = version
+        let project: MrProject = match get_json(
+            &client,
+            &format!("{MODRINTH_API}/project/{}", version.project_id),
+        )
+        .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                tracing::warn!("Project {}: {e:#}", version.project_id);
+                if explicit {
+                    report.failed.push(label);
+                }
+                continue;
+            }
+        };
+
+        if project.server_side.as_deref() == Some("unsupported") {
+            report.client_only.push(project.title);
+            continue;
+        }
+
+        let Some(file) = version
             .files
             .iter()
             .find(|f| f.primary)
             .or_else(|| version.files.first())
-            .ok_or_else(|| anyhow!("Version has no files"))?;
+        else {
+            report.failed.push(project.title);
+            continue;
+        };
         validate_file_name(&file.filename)?;
 
-        let project: MrProject = get_json(
-            &client,
-            &format!("{MODRINTH_API}/project/{}", version.project_id),
-        )
-        .await?;
-
         // Replace older files of the same project
-        if let Some(old) = meta
-            .projects
-            .iter()
-            .find(|p| p.project_id == project.id)
-            .map(|p| p.file_name.clone())
-        {
-            let _ = tokio::fs::remove_file(content_dir.join(&old)).await;
+        if let Some(old) = already {
+            let _ =
+                tokio::fs::remove_file(content_dir.join(&old.file_name)).await;
             let _ = tokio::fs::remove_file(
-                content_dir.join(format!("{old}.disabled")),
+                content_dir.join(format!("{}.disabled", old.file_name)),
             )
             .await;
             meta.projects.retain(|p| p.project_id != project.id);
         }
 
-        download_to(&client, &file.url, &content_dir.join(&file.filename))
-            .await?;
+        if let Err(e) =
+            download_to(&client, &file.url, &content_dir.join(&file.filename))
+                .await
+        {
+            tracing::warn!("Download of {} failed: {e:#}", project.title);
+            report.failed.push(project.title);
+            continue;
+        }
         meta.projects.push(InstalledProject {
             project_id: project.id.clone(),
             version_id: version.id.clone(),
@@ -1690,18 +1784,73 @@ pub async fn local_servers_install_project(
             icon_url: project.icon_url.clone(),
             version_number: version.version_number.clone(),
         });
-        installed.push(project.title);
+        report.installed.push(project.title);
 
         for dep in &version.dependencies {
             if dep.dependency_type == "required" {
                 queue.push_back((
                     dep.project_id.clone(),
                     dep.version_id.clone(),
+                    false,
                 ));
             }
         }
     }
 
     write_meta(&dir, &meta).await?;
-    Ok(installed)
+    Ok(report)
+}
+
+#[tauri::command]
+pub async fn local_servers_install_project(
+    id: String,
+    project_id: String,
+) -> Result<InstallReport> {
+    let report = install_projects(
+        &id,
+        vec![ProfileProject {
+            project_id,
+            version_id: None,
+        }],
+        false,
+    )
+    .await?;
+    if report.installed.is_empty() {
+        if let Some(title) = report.client_only.first() {
+            return Err(anyhow!(
+                "{title} ist eine reine Client-Mod und läuft nicht auf Servern"
+            )
+            .into());
+        }
+        if !report.failed.is_empty() {
+            return Err(anyhow!(
+                "Keine passende Version für diesen Server gefunden"
+            )
+            .into());
+        }
+    }
+    Ok(report)
+}
+
+/// Mirrors the mods of a game profile on the server (only adds missing ones).
+#[tauri::command]
+pub async fn local_servers_install_from_profile(
+    id: String,
+    projects: Vec<ProfileProject>,
+) -> Result<InstallReport> {
+    Ok(install_projects(&id, projects, true).await?)
+}
+
+#[tauri::command]
+pub async fn local_servers_link_instance<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+    instance_id: Option<String>,
+) -> Result<LocalServerInfo> {
+    let state = app.state::<LocalServersState>();
+    let dir = server_dir(&id).await?;
+    let mut meta = read_meta(&dir).await?;
+    meta.linked_instance = instance_id.filter(|i| !i.trim().is_empty());
+    write_meta(&dir, &meta).await?;
+    Ok(info_for(&state, &dir).await?)
 }

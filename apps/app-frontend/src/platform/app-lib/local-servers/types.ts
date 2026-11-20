@@ -22,6 +22,7 @@ export interface LocalServer {
 	jvm_args: string[]
 	created: string
 	projects: LocalServerInstalledProject[]
+	linked_instance: string | null
 	path: string
 	status: LocalServerStatus
 	port: number
@@ -36,6 +37,7 @@ export interface CreateLocalServer {
 	port: number
 	accept_eula: boolean
 	motd?: string | null
+	linked_instance?: string | null
 }
 
 export interface UpdateLocalServerSettings {
@@ -72,4 +74,16 @@ export interface LocalServerSearchResult {
 	offset: number
 	limit: number
 	total_hits: number
+}
+
+export interface LocalServerInstallReport {
+	installed: string[]
+	client_only: string[]
+	already_installed: string[]
+	failed: string[]
+}
+
+export interface LocalServerProfileProject {
+	project_id: string
+	version_id: string | null
 }

@@ -52,3 +52,10 @@ export const STATUS_COLORS: Record<LocalServerStatus, string> = {
 	running: 'bg-green',
 	stopping: 'bg-orange',
 }
+
+export const STATUS_BADGE_CLASSES: Record<LocalServerStatus, string> = {
+	stopped: '!border-surface-5 !bg-surface-3 !text-secondary',
+	starting: '!border-orange !bg-highlight-orange !text-orange',
+	running: '!border-green !bg-highlight-green !text-green',
+	stopping: '!border-orange !bg-highlight-orange !text-orange',
+}

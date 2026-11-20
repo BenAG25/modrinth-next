@@ -525,6 +525,8 @@ fn main() {
                         "local_servers_search_content",
                         "local_servers_install_project",
                         "local_servers_get_network_info",
+                        "local_servers_install_from_profile",
+                        "local_servers_link_instance",
                     ])
                     .default_permission(
                         DefaultPermissionRule::AllowAllCommands,

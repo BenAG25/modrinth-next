@@ -9,10 +9,11 @@ import {
 	TrashIcon,
 	XIcon,
 } from '@modrinth/assets'
-import { Avatar, Button, injectNotificationManager, Toggle } from '@modrinth/ui'
+import { Avatar, Button, injectNotificationManager, Input, Toggle } from '@modrinth/ui'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import {
+	getLocalServer,
 	installLocalServerProject,
 	listLocalServerContent,
 	removeLocalServerContent,
@@ -26,6 +27,7 @@ import type {
 } from '@/platform/app-lib/local-servers/types'
 
 import { contentLabel } from './loaders'
+import { sharesMods, syncServerToProfile } from './profile-link'
 
 const props = defineProps<{ server: LocalServer }>()
 const emit = defineEmits<{ changed: [] }>()
@@ -42,6 +44,9 @@ const searching = ref(false)
 const installing = ref<Record<string, boolean>>({})
 
 const label = computed(() => contentLabel(props.server.loader))
+const syncsWithProfile = computed(
+	() => !!props.server.linked_instance && sharesMods(props.server.loader),
+)
 const installedProjectIds = computed(() => new Set(props.server.projects.map((p) => p.project_id)))
 const filter = ref('')
 const filteredFiles = computed(() => {
@@ -92,14 +97,23 @@ function openBrowser() {
 async function install(hit: LocalServerSearchHit) {
 	installing.value[hit.project_id] = true
 	try {
-		const installed = await installLocalServerProject(props.server.id, hit.project_id)
+		const report = await installLocalServerProject(props.server.id, hit.project_id)
+		const lines: string[] = []
+		const deps = report.installed.filter((t) => t !== hit.title)
+		if (deps.length) lines.push(`Abhängigkeiten: ${deps.join(', ')}`)
+
+		if (syncsWithProfile.value && props.server.linked_instance) {
+			const updated = await getLocalServer(props.server.id)
+			const profileReport = await syncServerToProfile(updated, props.server.linked_instance)
+			if (profileReport.toProfile.length) lines.push('Auch im Spielprofil installiert.')
+			if (profileReport.serverOnly.length)
+				lines.push(`Nur serverseitig: ${profileReport.serverOnly.join(', ')}`)
+		}
+
 		addNotification({
 			type: 'success',
 			title: `${hit.title} installiert`,
-			text:
-				installed.length > 1
-					? `Inklusive Abhängigkeiten: ${installed.filter((t) => t !== hit.title).join(', ')}`
-					: undefined,
+			text: lines.length ? lines.join('\n') : undefined,
 		})
 		emit('changed')
 		await loadFiles()
@@ -139,41 +153,61 @@ watch(() => props.server.id, loadFiles)
 
 <template>
 	<div class="flex flex-col gap-4">
+		<!-- Toolbar -->
+		<div class="flex flex-wrap items-center gap-2">
+			<Input
+				v-model="filter"
+				:icon="SearchIcon"
+				type="search"
+				:placeholder="`Installierte ${label} durchsuchen…`"
+				wrapper-class="min-w-0 flex-1"
+				clearable
+			/>
+			<Button v-if="!browsing" type="colored" color="brand" @click="openBrowser">
+				<PlusIcon /> {{ label }} hinzufügen
+			</Button>
+		</div>
+
 		<div
 			v-if="server.status !== 'stopped'"
-			class="rounded-xl bg-bg-raised px-4 py-3 text-sm text-secondary"
+			class="rounded-2xl border border-solid border-surface-4 bg-bg-raised px-4 py-3 text-sm text-secondary"
 		>
 			Änderungen an {{ label }} werden nach einem Neustart des Servers aktiv.
 		</div>
 
 		<!-- Browse Modrinth -->
-		<div v-if="browsing" class="flex flex-col gap-3 rounded-2xl bg-bg-raised p-4">
+		<div
+			v-if="browsing"
+			class="flex flex-col gap-3 rounded-2xl border border-solid border-surface-4 bg-bg-raised p-4"
+		>
 			<div class="flex items-center gap-2">
-				<div class="relative flex-1">
-					<SearchIcon class="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" />
-					<input
-						v-model="query"
-						type="text"
-						class="w-full !pl-10"
-						:placeholder="`${label} auf Modrinth suchen (${server.game_version})…`"
-						autofocus
-					/>
-				</div>
-				<Button type="outlined" @click="browsing = false"><XIcon /> Schließen</Button>
+				<Input
+					v-model="query"
+					:icon="SearchIcon"
+					type="search"
+					:placeholder="`${label} auf Modrinth suchen (${server.game_version})…`"
+					wrapper-class="min-w-0 flex-1"
+					clearable
+				/>
+				<Button type="quiet" @click="browsing = false"><XIcon /> Schließen</Button>
+			</div>
+			<div v-if="syncsWithProfile" class="text-sm text-secondary">
+				Neue {{ label }} werden auch im verknüpften Spielprofil installiert, wenn der Client sie
+				braucht.
 			</div>
 			<div v-if="searching && results.length === 0" class="flex items-center gap-2 text-secondary">
 				<SpinnerIcon class="animate-spin" /> Suche…
 			</div>
-			<div v-else-if="results.length === 0" class="text-secondary">
+			<div v-else-if="results.length === 0" class="py-4 text-center text-secondary">
 				Keine passenden {{ label }} für {{ server.game_version }} gefunden.
 			</div>
-			<div class="flex flex-col gap-2">
+			<div v-else class="flex flex-col gap-2">
 				<div
 					v-for="hit in results"
 					:key="hit.project_id"
-					class="flex items-center gap-3 rounded-xl bg-bg p-3"
+					class="flex items-center gap-3 rounded-xl bg-surface-2 p-3"
 				>
-					<Avatar :src="hit.icon_url ?? undefined" size="3rem" />
+					<Avatar :src="hit.icon_url ?? undefined" size="48px" />
 					<div class="min-w-0 flex-1">
 						<div class="flex items-baseline gap-2">
 							<span class="truncate font-bold text-contrast">{{ hit.title }}</span>
@@ -181,12 +215,11 @@ watch(() => props.server.id, loadFiles)
 						</div>
 						<div class="line-clamp-2 text-sm text-secondary">{{ hit.description }}</div>
 						<div class="mt-1 flex items-center gap-1 text-xs text-secondary">
-							<DownloadIcon class="h-3 w-3" /> {{ formatDownloads(hit.downloads) }}
+							<DownloadIcon class="size-3" /> {{ formatDownloads(hit.downloads) }}
 						</div>
 					</div>
 					<Button
 						v-if="installedProjectIds.has(hit.project_id)"
-						type="outlined"
 						size="sm"
 						:disabled="installing[hit.project_id]"
 						@click="install(hit)"
@@ -218,36 +251,39 @@ watch(() => props.server.id, loadFiles)
 		</div>
 
 		<!-- Installed -->
-		<div class="flex flex-wrap items-center justify-between gap-2">
-			<h2 class="m-0 text-lg font-bold text-contrast">
-				Installierte {{ label }} ({{ files.length }})
-			</h2>
-			<div class="flex items-center gap-2">
-				<input v-if="files.length > 5" v-model="filter" type="text" placeholder="Filtern…" />
-				<Button v-if="!browsing" type="colored" color="brand" @click="openBrowser">
-					<PlusIcon /> {{ label }} hinzufügen
-				</Button>
-			</div>
-		</div>
-
 		<div v-if="loadingFiles" class="flex items-center gap-2 text-secondary">
 			<SpinnerIcon class="animate-spin" /> Lädt…
 		</div>
 		<div
 			v-else-if="files.length === 0"
-			class="flex flex-col items-center gap-2 rounded-2xl bg-bg-raised p-8 text-center text-secondary"
+			class="flex flex-col items-center gap-3 rounded-2xl border border-solid border-surface-4 bg-bg-raised p-10 text-center"
 		>
-			<BoxIcon class="h-10 w-10" />
-			Noch keine {{ label }} installiert.
+			<BoxIcon class="size-10 text-secondary" />
+			<div class="text-secondary">Noch keine {{ label }} installiert.</div>
+			<Button v-if="!browsing" type="colored" color="brand" @click="openBrowser">
+				<PlusIcon /> {{ label }} hinzufügen
+			</Button>
 		</div>
-		<div v-else class="flex flex-col gap-2">
+		<div
+			v-else
+			class="overflow-hidden rounded-2xl border border-solid border-surface-4 bg-bg-raised"
+		>
 			<div
-				v-for="file in filteredFiles"
-				:key="file.file_name"
-				class="flex items-center gap-3 rounded-xl bg-bg-raised p-3"
-				:class="{ 'opacity-60': !file.enabled }"
+				class="flex items-center justify-between border-0 border-b border-solid border-surface-4 px-4 py-3 text-sm font-semibold text-secondary"
 			>
-				<Avatar :src="file.project?.icon_url ?? undefined" size="2.5rem" />
+				<span>{{ files.length }} {{ label }}</span>
+				<span>Aktiv</span>
+			</div>
+			<div
+				v-for="(file, index) in filteredFiles"
+				:key="file.file_name"
+				class="flex items-center gap-3 px-4 py-3"
+				:class="{
+					'border-0 border-t border-solid border-surface-4': index > 0,
+					'opacity-60': !file.enabled,
+				}"
+			>
+				<Avatar :src="file.project?.icon_url ?? undefined" size="40px" />
 				<div class="min-w-0 flex-1">
 					<div class="truncate font-bold text-contrast">
 						{{ file.project?.title ?? file.file_name }}
@@ -257,14 +293,10 @@ watch(() => props.server.id, loadFiles)
 						{{ file.file_name }}
 					</div>
 				</div>
-				<Toggle
-					:model-value="file.enabled"
-					:aria-label="file.enabled ? 'Deaktivieren' : 'Aktivieren'"
-					@update:model-value="toggle(file)"
-				/>
-				<Button type="quiet" color="red" size="sm" @click="remove(file)">
+				<Button v-tooltip="'Entfernen'" type="quiet" color="red" size="sm" @click="remove(file)">
 					<TrashIcon />
 				</Button>
+				<Toggle :model-value="file.enabled" @update:model-value="toggle(file)" />
 			</div>
 		</div>
 	</div>

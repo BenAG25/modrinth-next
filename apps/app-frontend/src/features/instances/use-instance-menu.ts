@@ -6,6 +6,7 @@ import {
 	PaletteIcon,
 	PlayIcon,
 	PlusIcon,
+	ServerIcon,
 	SquareArrowOutUpRightIcon,
 	StarIcon,
 	StopCircleIcon,
@@ -20,6 +21,7 @@ import {
 	injectNotificationManager,
 	useVIntl,
 } from '@modrinth/ui'
+import { useRouter } from 'vue-router'
 
 import { useHiddenInstances } from '@/features/library/hidden-instances/use-hidden-instances'
 import { trackEvent } from '@/helpers/analytics'
@@ -94,6 +96,7 @@ export function useInstanceMenu() {
 	const filePicker = injectFilePicker()
 	const { confirmDelete, editIcon } = injectInstanceActions()
 	const { getVisibilityOption } = useHiddenInstances()
+	const router = useRouter()
 
 	const setInstanceGroups = async (item: InstanceCard, groupIds: string[]) =>
 		await edit(item.instance.id, { group_ids: groupIds }).catch((error) =>
@@ -202,6 +205,18 @@ export function useInstanceMenu() {
 				icon: SquareArrowOutUpRightIcon,
 				disabled: installing,
 				action: () => void item.seeInstance(),
+			},
+			{
+				id: 'create_local_server',
+				label: 'Lokalen Server erstellen',
+				icon: ServerIcon,
+				shown: item.instance.loader !== 'quilt',
+				disabled: installing,
+				action: () =>
+					void router.push({
+						path: '/local-servers',
+						query: { fromInstance: item.instance.id },
+					}),
 			},
 			{
 				id: 'duplicate',
